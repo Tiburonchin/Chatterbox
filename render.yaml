@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: chatterbox-upstream-service
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn upstream_api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: UPSTREAM_API_TOKEN
+        sync: false
+      - key: CHATTERBOX_MODEL
+        value: turbo
+      - key: CHATTERBOX_DEVICE
+        value: cpu
+      - key: CHATTERBOX_LANGUAGE
+        value: es
