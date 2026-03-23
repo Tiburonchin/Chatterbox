@@ -9,9 +9,6 @@ from typing import Optional
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from chatterbox_service import ChatterboxTTSService
-
-
 app = FastAPI(title="Chatterbox Upstream API", version="1.0.0")
 
 API_TOKEN = (os.getenv("UPSTREAM_API_TOKEN") or "").strip()
@@ -63,6 +60,8 @@ def generate(payload: GenerateRequest, authorization: Optional[str] = Header(def
     model_name = (payload.model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
     try:
+        from chatterbox_service import ChatterboxTTSService
+
         service = ChatterboxTTSService(model=model_name, device=DEFAULT_DEVICE)
         result = service.synthesize(
             text=payload.text,
