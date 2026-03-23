@@ -1,10 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 chatterbox-tts>=0.0.1
-torch==2.3.1; python_version < "3.13"
-torchaudio==2.3.1; python_version < "3.13"
-torch==2.10.0+cpu; python_version >= "3.13"
-torchaudio==2.10.0+cpu; python_version >= "3.13"
 flask==3.0.3
 gunicorn==23.0.0
 python-dotenv==1.0.1
