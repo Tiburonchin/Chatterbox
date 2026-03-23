@@ -9,7 +9,7 @@ Endpoint externo para TTS con Chatterbox usado por Supabase media-gateway.
 ## Deploy rápido (Render)
 - Root Directory: .
 - Build Command: pip install -r requirements.txt
-- Start Command: uvicorn upstream_api:app --host 0.0.0.0 --port $PORT
+- Start Command: gunicorn -b 0.0.0.0:$PORT upstream_api:app
 - Python Version: 3.11.9
 
 ## Variables de entorno
@@ -23,7 +23,7 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 set UPSTREAM_API_TOKEN=CHANGE_ME
-python -m uvicorn upstream_api:app --host 0.0.0.0 --port 8000
+python upstream_api.py
 
 ## Si falla el deploy en Render
 - Revisa que esté usando Python 3.11.9.

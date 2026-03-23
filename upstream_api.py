@@ -6,35 +6,27 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Header, HTTPException
-from pydantic import BaseModel, Field
+from flask import Flask, jsonify, request
 
-app = FastAPI(title="Chatterbox Upstream API", version="1.0.0")
+app = Flask(__name__)
 
 API_TOKEN = (os.getenv("UPSTREAM_API_TOKEN") or "").strip()
 DEFAULT_MODEL = (os.getenv("CHATTERBOX_MODEL") or "turbo").strip()
 DEFAULT_DEVICE = (os.getenv("CHATTERBOX_DEVICE") or "cpu").strip()
 DEFAULT_LANGUAGE = (os.getenv("CHATTERBOX_LANGUAGE") or "es").strip()
 
-
-class GenerateRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=5000)
-    language_id: str = Field(default=DEFAULT_LANGUAGE)
-    voice_id: Optional[str] = None
-    model: Optional[str] = None
-    display_name: Optional[str] = None
-
-
-def _ensure_auth(authorization: Optional[str]) -> None:
+def _ensure_auth(authorization: Optional[str]) -> tuple[bool, Optional[tuple[dict, int]]]:
     if not API_TOKEN:
-        return
+        return True, None
 
     if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        return False, ({"ok": False, "error": "Unauthorized"}, 401)
 
     token = authorization.split(" ", 1)[1].strip()
     if token != API_TOKEN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        return False, ({"ok": False, "error": "Unauthorized"}, 401)
+
+    return True, None
 
 
 def _read_as_data_uri(path: str) -> str:
@@ -50,33 +42,44 @@ def _read_as_data_uri(path: str) -> str:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "service": "chatterbox-upstream", "status": "up"}
+    return jsonify({"ok": True, "service": "chatterbox-upstream", "status": "up"})
 
 
 @app.post("/generate")
-def generate(payload: GenerateRequest, authorization: Optional[str] = Header(default=None)):
-    _ensure_auth(authorization)
+def generate():
+    authorized, error_response = _ensure_auth(request.headers.get("Authorization"))
+    if not authorized and error_response:
+        payload, status = error_response
+        return jsonify(payload), status
 
-    model_name = (payload.model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    payload = request.get_json(silent=True) or {}
+    text = str(payload.get("text") or "").strip()
+    if not text:
+        return jsonify({"ok": False, "error": "text es requerido"}), 422
+    if len(text) > 5000:
+        text = text[:5000]
+
+    language_id = str(payload.get("language_id") or DEFAULT_LANGUAGE).strip() or DEFAULT_LANGUAGE
+    model_name = str(payload.get("model") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
     try:
         from chatterbox_service import ChatterboxTTSService
 
         service = ChatterboxTTSService(model=model_name, device=DEFAULT_DEVICE)
         result = service.synthesize(
-            text=payload.text,
-            language_id=(payload.language_id or DEFAULT_LANGUAGE).strip() or DEFAULT_LANGUAGE,
+            text=text,
+            language_id=language_id,
             reference_audio=None,
             exaggeration=0.5,
             cfg_weight=0.5,
         )
 
         if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("error") or "TTS failed")
+            return jsonify({"ok": False, "error": result.get("error") or "TTS failed"}), 400
 
         audio_b64 = _read_as_data_uri(result["file_path"])
 
-        return {
+        return jsonify({
             "ok": True,
             "provider": "chatterbox_upstream",
             "audio_b64": audio_b64,
@@ -86,9 +89,12 @@ def generate(payload: GenerateRequest, authorization: Optional[str] = Header(def
                 "duration": result.get("duration"),
                 "hash": result.get("hash"),
             },
-        }
+        })
 
-    except HTTPException:
-        raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", "8000"))
+    app.run(host="0.0.0.0", port=port)
