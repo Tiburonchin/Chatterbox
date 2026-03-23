@@ -1,0 +1,20 @@
+# Dependencias Python para Chatterbox TTS
+# Path: scripts/tts_server/requirements.txt
+
+# Core TTS
+chatterbox-tts>=0.0.1
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# Storage & processing
+librosa>=0.10.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Server (opcional - si usas FastAPI)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
+
+# Utilidades
+python-dotenv>=1.0.0
